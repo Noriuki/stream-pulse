@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamPulse – Log Viewer</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="header">
+    <h1 class="logo">StreamPulse</h1>
+    <div class="live-badge" id="live-badge" title="WebSocket connection">
+      <span class="live-dot"></span>
+      <span id="connection">Connecting…</span>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="text" id="search" placeholder="Search logs… (Ctrl+K)" class="search-input" />
+        <button type="button" id="search-clear" class="btn-icon" title="Clear search" aria-label="Clear search">×</button>
+      </div>
+      <div class="filters">
+        <span class="filter-label">Levels</span>
+        <label><input type="checkbox" name="level" value="error" checked /> <span class="badge badge-error">Error</span></label>
+        <label><input type="checkbox" name="level" value="warn" checked /> <span class="badge badge-warn">Warn</span></label>
+        <label><input type="checkbox" name="level" value="info" checked /> <span class="badge badge-info">Info</span></label>
+        <label><input type="checkbox" name="level" value="debug" /> <span class="badge badge-debug">Debug</span></label>
+      </div>
+      <div class="actions">
+        <button type="button" id="btn-pause" class="btn btn-secondary" title="Pause stream (buffer in memory)">Pause</button>
+        <button type="button" id="btn-clear" class="btn btn-ghost" title="Clear view">Clear</button>
+        <label class="toggle-wrap" title="Beep on new error">
+          <input type="checkbox" id="sound-on-error" />
+          <span class="toggle-label">Sound on error</span>
+        </label>
+      </div>
+    </div>
+    <div class="stats" id="stats">
+      <span class="stat" title="Total logs received"><strong id="stat-total">0</strong> total</span>
+      <span class="stat" title="Logs per second"><strong id="stat-rate">0</strong>/s</span>
+      <span class="stat stat-errors"><strong id="stat-errors">0</strong> errors</span>
+      <span class="stat"><span id="stat-info" class="stat-level info">0</span> <span id="stat-warn" class="stat-level warn">0</span> <span id="stat-error" class="stat-level error">0</span> <span id="stat-debug" class="stat-level debug">0</span></span>
+    </div>
+  </header>
+  <main class="log-container">
+    <pre id="log-output"></pre>
+    <div id="empty-state" class="empty-state">Waiting for logs… Pipe something like <code>tail -f app.log | streampulse</code></div>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
