@@ -10,7 +10,7 @@ A **real-time log streaming and monitoring tool** built with Node.js streams, Ty
 - **Filter by level** — Include or exclude `info`, `warn`, `error`, `debug` (dashboard toggles update the filter in real time)
 - **Real-time broadcast** — All parsed logs are pushed to connected clients over WebSockets
 
-### Dashboard (recruiter-friendly extras)
+### Dashboard
 
 - **Live stats** — Total count, logs/sec rate, error count, and per-level breakdown (info/warn/error/debug)
 - **Live indicator** — Pulsing “Live” badge when WebSocket is connected; “Reconnecting…” when disconnected
@@ -131,12 +131,12 @@ StreamPulse uses object-mode streams for parsed data (streams of `LogEntry` obje
 
 ## Scripts
 
-| Command        | Description                    |
-|----------------|--------------------------------|
-| `npm run build`| Compile TypeScript to `dist/`  |
-| `npm start`    | Run server (no stdin piping)   |
-| `npm run dev`  | Run with `tsx watch`           |
-| `npm run cli`  | Run CLI (after build)          |
+| Command           | Description                         |
+| ----------------- | ----------------------------------- |
+| `npm run build`   | Compile TypeScript to `dist/`       |
+| `npm start`       | Run server (no stdin piping)        |
+| `npm run dev`     | Run with `tsx watch`                |
+| `npm run cli`     | Run CLI (after build)               |
 | `npm run dev:cli` | Run CLI with tsx (e.g. for testing) |
 
 ## License
