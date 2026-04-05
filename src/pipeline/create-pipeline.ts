@@ -1,7 +1,8 @@
+import { pipeline as pipelineCallback } from 'node:stream';
 import type { Writable } from 'node:stream';
 import { LogParserStream } from '../parsers/index.js';
 import { LevelFilterStream } from '../streams/index.js';
-import type { BroadcastStream } from '../websocket/broadcast-stream.js';
+import type { SseBroadcastStream } from '../sse/sse-broadcast-stream.js';
 import type { LogLevel } from '../types.js';
 
 export interface PipelineOptions {
@@ -9,23 +10,30 @@ export interface PipelineOptions {
   levels?: LogLevel[];
   /** Include (true) or exclude (false) the given levels. Default true. */
   includeLevels?: boolean;
+  /**
+   * Called when the internal parser → filter → broadcast chain errors or completes with an error.
+   * `stream.pipeline` destroys participating streams on failure.
+   */
+  onPipelineError?: (err: Error) => void;
 }
 
 export interface LogPipeline {
   /** Pipe the log source (e.g. process.stdin) into this stream. */
   input: Writable;
-  /** Update filter levels at runtime (e.g. from dashboard). */
+  /** Update filter levels at runtime (e.g. via POST /api/levels). */
   setLevels(levels: LogLevel[]): void;
+  /** Tear down the pipeline (e.g. on shutdown). */
+  destroy(): void;
 }
 
 /**
- * Builds the log processing pipeline:
- *   source (Readable) → parser → filter → broadcast
+ * Builds the log processing pipeline with `stream.pipeline()` for automatic cleanup on error:
+ *   parser → filter → broadcast
  *
- * Backpressure flows from broadcast (slow clients) back to the source.
+ * Backpressure flows from broadcast (slow SSE clients) back toward the source.
  */
 export function createLogPipeline(
-  broadcast: BroadcastStream,
+  broadcast: SseBroadcastStream,
   options: PipelineOptions = {}
 ): LogPipeline {
   const parser = new LogParserStream();
@@ -37,12 +45,24 @@ export function createLogPipeline(
     { objectMode: true }
   );
 
-  parser.pipe(filter).pipe(broadcast);
+  pipelineCallback(parser, filter, broadcast, (err) => {
+    if (err) {
+      const handler = options.onPipelineError ?? defaultPipelineError;
+      handler(err);
+    }
+  });
 
   return {
     input: parser,
     setLevels(levels: LogLevel[]) {
       filter.setLevels(levels);
     },
+    destroy() {
+      parser.destroy();
+    },
   };
+}
+
+function defaultPipelineError(err: Error): void {
+  console.error('[StreamPulse] pipeline error:', err.message);
 }

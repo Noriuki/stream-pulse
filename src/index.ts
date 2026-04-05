@@ -1,49 +1,99 @@
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { join, extname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { BroadcastStream } from './websocket/index.js';
-import { attachWebSocketServer } from './websocket/server.js';
+import { SseBroadcastStream } from './sse/index.js';
 import { createLogPipeline } from './pipeline/index.js';
 import type { LogPipeline } from './pipeline/index.js';
 import type { LogLevel } from './types.js';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-// When running from dist/index.js, resolve public from project root (parent of dist)
-const PUBLIC_DIR = join(__dirname, '..', 'public');
-
-const MIMES: Record<string, string> = {
-  '.html': 'text/html',
-  '.js': 'application/javascript',
-  '.css': 'text/css',
-  '.ico': 'image/x-icon',
-};
 
 export interface StreamPulseServerOptions {
   port?: number;
   /** Initial log level filter (default: all levels). */
   levels?: LogLevel[];
+  /** Called if parser → filter → broadcast fails (after `stream.pipeline` cleanup). */
+  onPipelineError?: (err: Error) => void;
 }
 
 export interface StreamPulseServer {
   server: ReturnType<typeof createServer>;
   pipeline: LogPipeline;
-  broadcast: BroadcastStream;
+  broadcast: SseBroadcastStream;
 }
 
+const API_INFO = {
+  name: 'StreamPulse',
+  description: 'Log streaming API over HTTP (SSE + JSON)',
+  endpoints: {
+    stream: 'GET /api/stream — Server-Sent Events, one JSON log per event',
+    stats: 'GET /api/stats — subscriber count',
+    levels: '/api/levels',
+    health: '/api/health',
+  },
+};
+
 /**
- * Creates and starts the StreamPulse HTTP server, WebSocket, and log pipeline.
- * Pipe a log source into pipeline.input (e.g. process.stdin).
+ * Creates and starts the StreamPulse HTTP API and log pipeline.
+ * Pipe a log source into pipeline.input (e.g. via `stream.pipeline(stdin, pipeline.input, cb)`).
  */
 export function createStreamPulseServer(
   options: StreamPulseServerOptions = {}
 ): StreamPulseServer {
   const port = options.port ?? 3080;
-  const broadcast = new BroadcastStream();
-  const pipeline = createLogPipeline(broadcast, { levels: options.levels });
+  const broadcast = new SseBroadcastStream();
+  const pipeline = createLogPipeline(broadcast, {
+    levels: options.levels,
+    onPipelineError: options.onPipelineError,
+  });
 
   const server = createServer((req, res) => {
-    const url = req.url ?? '/';
+    const url = req.url?.split('?')[0] ?? '/';
+
+    if (url === '/api/health' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({ status: 'ok' })
+      );
+      return;
+    }
+
+    if (url === '/api/stats' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(
+        JSON.stringify({
+          sseSubscribers: broadcast.getClientCount(),
+        })
+      );
+      return;
+    }
+
+    if ((url === '/' || url === '/api') && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(API_INFO));
+      return;
+    }
+
+    if (url === '/api/stream' && req.method === 'GET') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      });
+      res.write(': streampulse\n\n');
+      broadcast.addClient(res);
+      let detached = false;
+      const detach = (): void => {
+        if (detached) return;
+        detached = true;
+        broadcast.removeClient(res);
+        if (!res.writableEnded) {
+          try {
+            res.end();
+          } catch {
+            /* ignore */
+          }
+        }
+      };
+      req.on('close', detach);
+      req.on('error', detach);
+      res.on('error', detach);
+      return;
+    }
+
     if (url === '/api/levels' && req.method === 'POST') {
       let body = '';
       req.on('data', (c) => (body += c));
@@ -60,6 +110,7 @@ export function createStreamPulseServer(
       });
       return;
     }
+
     if (url === '/api/levels' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' }).end(
         JSON.stringify({ levels: options.levels ?? [] })
@@ -67,25 +118,14 @@ export function createStreamPulseServer(
       return;
     }
 
-    const path = url === '/' ? '/index.html' : url;
-    const filePath = join(PUBLIC_DIR, path.replace(/^\//, ''));
-    if (!filePath.startsWith(PUBLIC_DIR)) {
-      res.writeHead(403).end();
-      return;
-    }
-    try {
-      const data = readFileSync(filePath);
-      const mime = MIMES[extname(filePath)] ?? 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': mime }).end(data);
-    } catch {
-      res.writeHead(404).end('Not found');
-    }
+    res.writeHead(404, { 'Content-Type': 'application/json' }).end(
+      JSON.stringify({ error: 'Not found' })
+    );
   });
 
-  attachWebSocketServer(server, { broadcast });
-
   server.listen(port, () => {
-    console.error(`StreamPulse dashboard: http://localhost:${port}`);
+    console.error(`StreamPulse API listening on http://localhost:${port}`);
+    console.error(`  GET /api/stream (SSE)  GET /api/stats  GET /api/health  POST /api/levels  GET /`);
   });
 
   return { server, pipeline, broadcast };

@@ -1,7 +1,7 @@
 {
   "name": "streampulse",
   "version": "1.0.0",
-  "description": "Real-time log streaming and monitoring tool built with Node.js streams",
+  "description": "CLI and HTTP API: pipe logs from stdin, parse and filter, broadcast via Server-Sent Events",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -17,20 +17,18 @@
   "keywords": [
     "logs",
     "streaming",
-    "websocket",
-    "monitoring"
+    "sse",
+    "cli",
+    "monitoring",
+    "typescript"
   ],
   "author": "",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
-    "ws": "^8.18.0"
-  },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
