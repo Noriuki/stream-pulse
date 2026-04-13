@@ -124,8 +124,10 @@ export function createStreamPulseServer(
   });
 
   server.listen(port, () => {
-    console.error(`StreamPulse API listening on http://localhost:${port}`);
-    console.error(`  GET /api/stream (SSE)  GET /api/stats  GET /api/health  POST /api/levels  GET /`);
+    process.stderr.write(
+      `StreamPulse API listening on http://localhost:${port}\n` +
+        `  GET /api/stream (SSE)  GET /api/stats  GET /api/health  POST /api/levels  GET /\n`
+    );
   });
 
   return { server, pipeline, broadcast };

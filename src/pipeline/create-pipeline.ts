@@ -64,5 +64,5 @@ export function createLogPipeline(
 }
 
 function defaultPipelineError(err: Error): void {
-  console.error('[StreamPulse] pipeline error:', err.message);
+  process.stderr.write(`[StreamPulse] pipeline error: ${err.message}\n`);
 }
